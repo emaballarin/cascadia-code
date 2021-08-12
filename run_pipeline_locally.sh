@@ -7,10 +7,15 @@ if $REDEPLOY_VENV; then
 fi
 
 rm -R -f ./previous_build
-
 if [ -d build ]; then
     mv build previous_build
 fi
+
+rm -R -f ./previous_release
+if [ -d release ]; then
+    mv release previous_release
+fi
+mkdir -p release
 
 if [ ! -d venv ]; then
     virtualenv venv
@@ -22,7 +27,6 @@ export PRE_PATH="$PATH"
 export PATH="./venv/bin/:$PATH"
 ufolint sources/*.ufo
 python ./build.py -S -W
-zip -r ../out/CascadiaCode.zip ttf otf woff2
+zip -r ./release/CascadiaCode.zip ./build/otf ./build/ttf ./build/woff2
 export PATH="$PRE_PATH"
 unset PRE_PATH
-
