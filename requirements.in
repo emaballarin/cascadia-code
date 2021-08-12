@@ -10,3 +10,5 @@ skia-pathops
 fontTools[ufo,lxml,woff]
 vttmisc
 ufolint
+pip-tools
+
