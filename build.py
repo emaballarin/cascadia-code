@@ -22,8 +22,8 @@ import vttLib
 import vttLib.transfer
 from vttmisc import tsi1, tsic
 
-VERSION_YEAR_MONTH = 2108
-VERSION_DAY = 26
+VERSION_YEAR_MONTH = 2110
+VERSION_DAY = 31
 OUTPUT_DIR = Path("build")
 OUTPUT_OTF_DIR = OUTPUT_DIR / "otf"
 OUTPUT_TTF_DIR = OUTPUT_DIR / "ttf"
@@ -241,6 +241,7 @@ def compile_variable_and_save(
         font_vtt = fontTools.ttLib.TTFont(ITALIC_VTT_DATA_FILE)
     else:
         font_vtt = fontTools.ttLib.TTFont(VTT_DATA_FILE)
+    
 
     for table in ["TSI0", "TSI1", "TSI2", "TSI3", "TSI5", "TSIC", "maxp"]:
         varFont[table] = fontTools.ttLib.newTable(table)
@@ -260,7 +261,6 @@ def compile_variable_and_save(
     # last minute manual corrections to set things correctly
     # set two flags to enable proper rendering (one for overlaps in Mac, the other for windows hinting)
     # Helping mac office generage the postscript name correctly for variable fonts when an italic is present
-
     set_overlap_flag(varFont)
     varFont["head"].flags = 0x000b
 
@@ -572,7 +572,8 @@ if __name__ == "__main__":
     # Step 1.5: Adding STAT tables in one go
     print ("[Cascadia Variable fonts] Fixing STAT tables")
     fontSTAT = [fontTools.ttLib.TTFont(f) for f in list(OUTPUT_TTF_DIR.glob("*.ttf"))]
-    config = yaml.load(open(INPUT_DIR/"stat.yaml"), Loader=yaml.SafeLoader)
+    with open(INPUT_DIR/"stat.yaml") as f:
+        config = yaml.load(f, Loader=yaml.SafeLoader)
     gen_stat_tables_from_config(config, fontSTAT)
 
     for font in fontSTAT:
