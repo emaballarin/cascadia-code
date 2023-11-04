@@ -213,7 +213,7 @@ vttmisc==0.0.5
     # via -r requirements.in
 werkzeug==2.0.1
     # via flask
-wheel==0.37.0
+wheel==0.38.1
     # via pip-tools
 wrapt==1.12.1
     # via deprecated
