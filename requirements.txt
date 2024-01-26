@@ -134,7 +134,7 @@ pillow==10.2.0
     #   pybrowserstack-screenshots
 pip-tools==6.2.0
     # via -r requirements.in
-protobuf==3.17.3
+protobuf==3.18.3
     # via gftools
 psautohint==2.3.0
     # via -r requirements.in
@@ -177,7 +177,6 @@ six==1.16.0
     # via
     #   absl-py
     #   fs
-    #   protobuf
     #   pynacl
     #   python-dateutil
 skia-pathops==0.6.0.post2
