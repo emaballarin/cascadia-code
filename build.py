@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import cast
 import xml.etree.cElementTree as ET
 import tempfile
+import glob
 
 import cffsubr.__main__
 import fontmake.instantiator
@@ -50,9 +51,16 @@ def step_set_font_name(name: str, source: ufoLib2.Font) -> None:
 
 
 def step_merge_glyphs_from_ufo(path: Path, instance: ufoLib2.Font) -> None:
+    unicodes = []
+    for glyph in instance:
+        unicodes.append(glyph.unicode)
     ufo = ufoLib2.Font.open(path)
     for glyph in ufo:
-        if glyph.name not in instance:
+        if glyph.unicode:
+            if glyph.unicode not in unicodes:
+                newName = str(hex(glyph.unicode)).upper().replace("0X","uni")
+                instance.layers.defaultLayer.insertGlyph(ufo[glyph.name],newName, overwrite=False, copy=False)
+        else:
             instance.addGlyph(ufo[glyph.name])
 
 
@@ -103,6 +111,8 @@ def step_set_feature_file(path: Path, name: str, instance: ufoLib2.Font) -> None
     for item in featureList:
         if "PL" in name and item == "rclt":
             featureSet += Path(path / str("rclt_PL.fea")).read_text()
+        elif "NF" in name and item == "rclt":
+            featureSet += Path(path / str("rclt_PL.fea")).read_text()
         elif "Mono" in name and "calt" in item:
             featureSet += Path(path / str(item+"_mono.fea")).read_text() #both Italic and Regular can use same mono
         else:
@@ -151,24 +161,21 @@ def prepare_fonts(
 
         step_set_feature_file(FEATURES_DIR, name, source.font)
 
-        if "Mono" in name and "PL" in name:
+        if "PL" in name or "NF" in name or "Mono" in name:
+            step_set_font_name(name, source.font)
+
+        if "PL" in name or "NF" in name:
             print(f"[{name} {source.styleName}] Merging PL glyphs")
             step_merge_glyphs_from_ufo(
                 NERDFONTS_DIR / "NerdfontsPL-Regular.ufo", source.font
             )
-            step_set_font_name(name, source.font)
-        elif "Mono" in name:
-            step_set_font_name(name, source.font)
-        elif "PL" in name:
-            print(f"[{name} {source.styleName}] Merging PL glyphs")
-            step_merge_glyphs_from_ufo(
-                NERDFONTS_DIR / "NerdfontsPL-Regular.ufo", source.font
-            )
-            step_set_font_name(name, source.font)
-        elif "Cascadia Code" in name:
-            pass
-        else:
-            print("Variant name not identified. Please check.")
+
+        if "NF" in name:
+            print(f"[{name} {source.styleName}] Merging NF glyphs")
+            for ufo in Path(NERDFONTS_DIR/"full"/"processed").glob("*.ufo"):
+                step_merge_glyphs_from_ufo(
+                    ufo, source.font
+                )
 
         set_font_metaData(source.font)
     for instance in designspace.instances:
@@ -345,6 +352,7 @@ def ttfautohint(path: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="build some fonts")
     parser.add_argument("-P", "--no-powerline", action="store_false", dest="powerline")
+    parser.add_argument("-NF", "--no-nerdfonts", action="store_false", dest="nerdfonts")
     parser.add_argument("-M", "--no-mono", action="store_false", dest="mono")
     parser.add_argument("-S", "--static-fonts", action="store_true")
     parser.add_argument("-I", "--no-italic", action="store_false", dest="italic")
@@ -379,7 +387,8 @@ if __name__ == "__main__":
         if s.lib.get("com.schriftgestaltung.export", True)
     ]
 
-    # Stage 1: Make all the things.
+
+    #Stage 1: Make all the things.
     pool = multiprocessing.pool.Pool(processes=multiprocessing.cpu_count())
     processes = []
     processes.append(
@@ -469,6 +478,50 @@ if __name__ == "__main__":
                         ),
                     )
                 )
+    if args.nerdfonts:
+        processes.append(
+            pool.apply_async(
+                build_font_variable,
+                (
+                    designspace,
+                    "Cascadia Code NF",
+                    args.vtt_compile,
+                ),
+            )
+        )
+        if args.italic:
+            processes.append(
+                pool.apply_async(
+                    build_font_variable,
+                    (
+                        designspaceItalic,
+                        "Cascadia Code NF Italic",
+                        args.vtt_compile,
+                    ),
+                )
+            )
+        if args.mono:
+            processes.append(
+                pool.apply_async(
+                    build_font_variable,
+                    (
+                        designspace,
+                        "Cascadia Mono NF",
+                        args.vtt_compile,
+                    ),
+                )
+            )
+            if args.italic:
+                processes.append(
+                    pool.apply_async(
+                        build_font_variable,
+                        (
+                            designspaceItalic,
+                            "Cascadia Mono NF Italic",
+                            args.vtt_compile,
+                        ),
+                    )
+                )
 
     if args.static_fonts:
         # Build the Regulars
@@ -516,6 +569,28 @@ if __name__ == "__main__":
                             ),
                         )
                     )
+            if args.nerdfonts:
+                processes.append(
+                    pool.apply_async(
+                        build_font_static,
+                        (
+                            designspace,
+                            instance_descriptor,
+                            "Cascadia Code NF",
+                        ),
+                    )
+                )
+                if args.mono:
+                    processes.append(
+                        pool.apply_async(
+                            build_font_static,
+                            (
+                                designspace,
+                                instance_descriptor,
+                                "Cascadia Mono NF",
+                            ),
+                        )
+                    )
         if args.italic:
             # Build the Regulars
             for instance_descriptor in designspaceItalic.instances:
@@ -559,6 +634,28 @@ if __name__ == "__main__":
                                     designspaceItalic,
                                     instance_descriptor,
                                     "Cascadia Mono PL Italic",
+                                ),
+                            )
+                        )
+                if args.nerdfonts:
+                    processes.append(
+                        pool.apply_async(
+                            build_font_static,
+                            (
+                                designspaceItalic,
+                                instance_descriptor,
+                                "Cascadia Code NF Italic",
+                            ),
+                        )
+                    )
+                    if args.mono:
+                        processes.append(
+                            pool.apply_async(
+                                build_font_static,
+                                (
+                                    designspaceItalic,
+                                    instance_descriptor,
+                                    "Cascadia Mono NF Italic",
                                 ),
                             )
                         )
